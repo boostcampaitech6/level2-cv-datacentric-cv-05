@@ -31,7 +31,6 @@ pths/
 
 # exclude etc
 *.txt
-*.ipynb
 *.tar
 *.gz
 
