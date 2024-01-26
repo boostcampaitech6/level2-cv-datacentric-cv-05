@@ -147,20 +147,19 @@ def train(
                 gt_geo_map = gt_geo_map.to(device)
                 roi_mask = roi_mask.to(device)
 
-                loss, extra_info = model.train_step(
-                    img, gt_score_map, gt_geo_map, roi_mask
-                )
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-
-                # TODO: amp
-                # with torch.cuda.amp.autocast():
-                #     loss, extra_info = model.train_step(img, gt_score_map, gt_geo_map, roi_mask)
+                # loss, extra_info = model.train_step(
+                #     img, gt_score_map, gt_geo_map, roi_mask
+                # )
                 # optimizer.zero_grad()
-                # scaler.scale(loss).backward()
-                # scaler.step(optimizer)
-                # scaler.update()
+                # loss.backward()
+                # optimizer.step()
+
+                with torch.cuda.amp.autocast():
+                    loss, extra_info = model.train_step(img, gt_score_map, gt_geo_map, roi_mask)
+                optimizer.zero_grad()
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
 
                 loss_val = loss.item()
                 epoch_loss += loss_val
