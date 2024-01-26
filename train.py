@@ -155,7 +155,9 @@ def train(
                 # optimizer.step()
 
                 with torch.cuda.amp.autocast():
-                    loss, extra_info = model.train_step(img, gt_score_map, gt_geo_map, roi_mask)
+                    loss, extra_info = model.train_step(
+                        img, gt_score_map, gt_geo_map, roi_mask
+                    )
                 optimizer.zero_grad()
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
