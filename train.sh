@@ -1,4 +1,6 @@
 # ${변수} 정의
+NAME="exp2"
+SEED=1
 DATA_DIR="/data/ephemeral/home/level2-cv-datacentric-cv-05/data/medical"
 OUTPUT_DIR="/data/ephemeral/home/level2-cv-datacentric-cv-05/code/pths"
 RESIZE=1024
@@ -11,6 +13,8 @@ INTERVAL=5 # 10
 
 # run with args
 python train.py \
+--name ${NAME} \
+--seed ${SEED} \
 --data_dir ${DATA_DIR} \
 --model_dir ${OUTPUT_DIR} \
 --image_size ${RESIZE} \

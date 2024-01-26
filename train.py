@@ -41,6 +41,7 @@ def parse_args():
         type=str,
         default="/data/ephemeral/home/level2-cv-datacentric-cv-05/data/medical",
     )
+    parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--fold", type=int, default=0)
     parser.add_argument(
         "--model_dir",
@@ -73,6 +74,7 @@ def parse_args():
 
 def train(
     name,
+    seed,
     data_dir,
     fold,
     model_dir,
@@ -234,7 +236,7 @@ def main(args):
 
 if __name__ == "__main__":
     torch.cuda.empty_cache()
-    seed_everything(1)
     args = parse_args()
+    seed_everything(args.seed)
     print(args)
     main(args)
