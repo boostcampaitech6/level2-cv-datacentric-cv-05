@@ -17,7 +17,7 @@ def get_geo_loss(gt_geo, pred_geo):
     h_union = torch.min(d1_gt, d1_pred) + torch.min(d2_gt, d2_pred)
     area_intersect = w_union * h_union
     area_union = area_gt + area_pred - area_intersect
-    iou_loss_map = -torch.log((area_intersect + 1.0) / (area_union + 1.0))
+    iou_loss_map = -torch.log((area_intersect + 1.0) / (area_union + 1.0) + 6e-8)
     angle_loss_map = 1 - torch.cos(angle_pred - angle_gt)
     return iou_loss_map, angle_loss_map
 
