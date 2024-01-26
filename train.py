@@ -128,7 +128,7 @@ def train(
     scheduler = lr_scheduler.MultiStepLR(
         optimizer, milestones=[max_epoch // 2], gamma=0.1
     )
-    # scaler = torch.cuda.amp.GradScaler() # TODO: amp
+    scaler = torch.cuda.amp.GradScaler()
     print("[INFO] Model loaded.")
 
     print("[INFO] Start training.")
