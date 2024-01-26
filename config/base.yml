@@ -1,0 +1,22 @@
+
+config: ./config/base.yml
+data_dir: ../data/medical
+save_dir: ./results
+output_dir: ./output
+json_path: split/train_fold_0.json
+val_json_path: split/val_fold_0.json
+
+project_name: 'Boost camp Lv2'
+exp_name: exp
+
+dataset: SceneTextDataset
+
+seed: 207
+max_epochs: 150
+batch_size: 8
+optimizer: Adam
+lr: 1e-3
+scheduler: MultiStepLR
+
+with_pickle: False
+pickle_path: split/train_fold_0.pkl
