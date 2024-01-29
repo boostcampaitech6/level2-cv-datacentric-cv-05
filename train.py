@@ -17,6 +17,7 @@ from model import EAST
 from detect import *
 from deteval import *
 from utils import *
+from plot import *
 import wandb
 import random
 
@@ -191,6 +192,17 @@ def train(
                 pred_bboxes_dict = get_pred_bboxes(
                     model, data_dir, valid_images, input_size, batch_size, fold
                 )
+                
+                gt_image = valid_images.copy()
+                pred_image = valid_images.copy()
+                
+                draw_bboxes(gt_image, gt_bboxes_dict)
+                draw_bboxes(pred_image, pred_bboxes_dict)
+                
+                ## wandb로 넣으실때 gt와 pred를 각각 넣으셔야 합니다.
+                ## 아래 코드를 참고해주세요. (이건 예시입니다. 아래가 동작하는 건 아닙니다!)
+                # wandb.log({"gt": gt_image}, step=epoch) -> title : gt_<image_name>
+                # wandb.log({"pred": pred_image}, step=epoch) -> pred_<image_name>
 
                 result = calc_deteval_metrics(pred_bboxes_dict, gt_bboxes_dict)
                 total_result = result["total"]
