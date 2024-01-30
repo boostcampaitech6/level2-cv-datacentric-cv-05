@@ -8,7 +8,7 @@ import albumentations as A
 from torch.utils.data import Dataset
 
 from data.preprocess import *
-from data.augmentation import TestTransform
+from data.augmentation import TestTransform, TrainTransform
 from utils.detect import get_bboxes
 
 class SceneTextDataset(Dataset):
@@ -19,8 +19,7 @@ class SceneTextDataset(Dataset):
                  ignore_tags=[],
                  ignore_under_threshold=10,
                  drop_under_threshold=1,
-                 color_jitter=True,
-                 normalize=True):
+                 use_transform=True):
         with open(osp.join(root_dir, 'ufo/{}'.format(json_path)), 'r', encoding='utf-8-sig') as f:
             anno = json.load(f)
 
@@ -29,7 +28,9 @@ class SceneTextDataset(Dataset):
         self.image_dir = osp.join(root_dir, 'img', 'train')
 
         self.image_size, self.crop_size = image_size, crop_size
-        self.color_jitter, self.normalize = color_jitter, normalize
+        self.use_transform = use_transform
+        if self.use_transform:
+            self.transform = TrainTransform()
 
         self.ignore_tags = ignore_tags
 
@@ -75,14 +76,9 @@ class SceneTextDataset(Dataset):
             image = image.convert('RGB')
         image = np.array(image)
 
-        funcs = []
-        if self.color_jitter:
-            funcs.append(A.ColorJitter(0.5, 0.5, 0.5, 0.25))
-        if self.normalize:
-            funcs.append(A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
-        transform = A.Compose(funcs)
-
-        image = transform(image=image)['image']
+        if self.use_transform:
+            image = self.transform(image=image)['image']
+            
         word_bboxes = np.reshape(vertices, (-1, 4, 2))
         roi_mask = generate_roi_mask(image, vertices, labels)
         
