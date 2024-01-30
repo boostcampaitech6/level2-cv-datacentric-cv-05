@@ -216,7 +216,6 @@ class TestTransform:
 class TrainTransform:
     def __init__(self):
         self.transform = A.Compose([A.ColorJitter(0.5, 0.5, 0.5, 0.25), 
-                                    A.HorizontalFlip(),
                                     A.ToGray(),
                                     A.Normalize()])
     
