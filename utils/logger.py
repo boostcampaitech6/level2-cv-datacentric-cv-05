@@ -70,9 +70,10 @@ class WeightAndBiasLogger:
             raise TypeError('Argument must be dictionary')
         wandb.update(args)
     
-    def update_image_with_label(self, image):
+    def make_image_with_label(self, image):
         # TODO
         # Make image with caption
+        
         return wandb.Image(image)
 
     
