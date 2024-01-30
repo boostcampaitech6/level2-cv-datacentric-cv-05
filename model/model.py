@@ -1,5 +1,5 @@
 import math
-
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -64,7 +64,15 @@ class Extractor(nn.Module):
         super().__init__()
         vgg16_bn = VGG(make_layers(cfg, batch_norm=True))
         if pretrained:
-            vgg16_bn.load_state_dict(torch.load('./pths/vgg16_bn-6c64b313.pth'))
+            try:
+                vgg16_bn.load_state_dict(torch.load('./pths/vgg16_bn-6c64b313.pth'))
+            except Exception as e:
+                import wget
+                if not os.path.exists("./pths"):
+                    os.mkdir("./pths")
+                wget.download('https://download.pytorch.org/models/vgg16_bn-6c64b313.pth', './pths/vgg16_bn-6c64b313.pth')
+                vgg16_bn.load_state_dict(torch.load('./pths/vgg16_bn-6c64b313.pth'))
+                
         self.features = vgg16_bn.features
 
     def forward(self, x):
