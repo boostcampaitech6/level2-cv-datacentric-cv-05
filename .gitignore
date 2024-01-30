@@ -20,19 +20,22 @@ model/*
 # exclude uitls cache
 utils/__pycache__
 
+# exclude EDA folder (temporarily)
+EDA/
+eda.py
 
 # exclude results
 results/
 output/
 .vscode/
-.github/
-pths/
-.vscode/
 
 # exclude etc
 *.txt
+*.ipynb
 *.tar
 *.gz
+*.json
+*.pth
 
 # exclude wandb
 wandb/
