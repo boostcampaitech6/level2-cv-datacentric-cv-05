@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from data.east_dataset import EASTDataset
-from data.dataset import TestDataset, TestDatasetWithPickle, SceneTextDataset, SceneTextDatasetWithPickle
+from data.dataset import TestDataset
 from model.model import EAST
 from utils.util import seed_everything, setup_paths
 from utils.argparsers import Parser
@@ -28,7 +28,7 @@ wb_logger = None
 device = None
 VAL_START_IDX = 30
 
-def validation(model: torch.nn.Module, val_loader: DataLoader) -> dict:
+def validate(model: torch.nn.Module, val_loader: DataLoader) -> dict:
     with torch.no_grad():
         model.eval()
         
@@ -53,7 +53,7 @@ def validation(model: torch.nn.Module, val_loader: DataLoader) -> dict:
             
         result = calc_deteval_metrics(pred_bboxes, gt_bboxes, verbose=True)
         precision, recall, f1score = result['total']['precision'], result['total']['recall'], result['total']['hmean']
-        per_sample_log = result['per_sample']
+        #per_sample_log = result['per_sample']
          
         validation_desc = \
             "Precision: {:3.4f}, Recall: {:3.4f}, F1 Score: {:3.4f}".\
@@ -61,9 +61,9 @@ def validation(model: torch.nn.Module, val_loader: DataLoader) -> dict:
         
         print(validation_desc)
         
-        for image_fname, value in per_sample_log.items():
-            validation_desc += "\n[{}] Precision: {:3.4f}, Recall: {:3.4f}, F1 Score: {:3.4f}, Log: {}\n".\
-                format(image_fname, value["precision"], value["recall"], value["hmean"], value["evaluation_log"])
+        # for image_fname, value in per_sample_log.items():
+        #     validation_desc += "\n[{}] Precision: {:3.4f}, Recall: {:3.4f}, F1 Score: {:3.4f}, Log: {}\n".\
+        #         format(image_fname, value["precision"], value["recall"], value["hmean"], value["evaluation_log"])
 
         txt_logger.update_string(validation_desc)
 
@@ -96,8 +96,8 @@ def train(args):
     model = EAST(pretrained=True)
     model.to(device)
     
-    #optimizer = create_optimizer(args.optimizer, model.parameters(), float(args.lr), 5e-4)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3,)
+    optimizer = create_optimizer(args.optimizer, model.parameters(), float(args.lr), 5e-4)
+    #optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     scheduler = create_scheduler(args.scheduler, optimizer, args.max_epochs)
     
     with open(osp.join(save_path, 'config.json'), 'w', encoding='utf-8') as f:
@@ -143,8 +143,8 @@ def train(args):
         train_process_bar.close()
         
         if epoch >= VAL_START_IDX:
-            metric, vis_img_name, pred_bboxes, gt_bboxes = validation(model, val_loader)
-            image_fpath = osp.join(args.data_dir, "img", "train", vis_img_name)
+            metric, vis_img_name, pred_bboxes, gt_bboxes = validate(model, val_loader)
+            #image_fpath = osp.join(args.data_dir, "img", "train", vis_img_name)
         
             img = cv2.imread(image_fpath)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -153,7 +153,7 @@ def train(args):
             
             vis_img = np.hstack([pred_img, gt_img])
             
-            metric["Image"] = vis_img
+            metric["Image"] = wb_logger.make_image_with_label(vis_img)
             metric["Train Loss"] = train_loss / num_batches
             wb_logger.log(metric)
             
@@ -167,7 +167,7 @@ def train(args):
     
     model.load_state_dict(best_weight)
     
-    _, vis_img_name, pred_bboxes, gt_bboxes = validation(model, val_loader)
+    _, vis_img_name, pred_bboxes, gt_bboxes = validate(model, val_loader)
     
     image_fpath = osp.join(args.data_dir, "img", "train", vis_img_name)
     img = cv2.imread(image_fpath)
