@@ -97,7 +97,6 @@ def train(args):
     model.to(device)
     
     optimizer = create_optimizer(args.optimizer, model.parameters(), float(args.lr), 5e-4)
-    #optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     scheduler = create_scheduler(args.scheduler, optimizer, args.max_epochs)
     
     with open(osp.join(save_path, 'config.json'), 'w', encoding='utf-8') as f:
