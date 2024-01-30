@@ -212,3 +212,13 @@ class TestTransform:
     
     def __call__(self, image):
         return self.transform(image=image)
+    
+class TrainTransform:
+    def __init__(self):
+        self.transform = A.Compose([A.ColorJitter(0.5, 0.5, 0.5, 0.25), 
+                                    A.HorizontalFlip(),
+                                    A.ToGray(),
+                                    A.Normalize()])
+    
+    def __call__(self, image):
+        return self.transform(image=image)
