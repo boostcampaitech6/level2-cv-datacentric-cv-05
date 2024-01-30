@@ -36,7 +36,7 @@ class Logger:
     def close(self):
         self.file.close()
 
-class WeightAndBiasLogger():
+class WeightAndBiasLogger:
     """
     Weights & Biases를 사용하여 실험 로그를 기록하는 클래스.
 
@@ -70,8 +70,10 @@ class WeightAndBiasLogger():
             raise TypeError('Argument must be dictionary')
         wandb.update(args)
     
-    # def update_image_with_label(self, image, prediction, truth):
-    #     return wandb.Image(image, caption = f"Pred: {prediction}, {MaskBaseDataset.class_name[prediction]}" + "\n" + f"Truth: {truth}, {MaskBaseDataset.class_name[truth]}")
+    def update_image_with_label(self, image):
+        # TODO
+        # Make image with caption
+        return wandb.Image(image)
 
     
     # @staticmethod

@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from data.east_dataset import EASTDataset
-from data.dataset import TestDataset, TestDatasetWithPickle
+from data.dataset import TestDataset, TestDatasetWithPickle, SceneTextDataset, SceneTextDatasetWithPickle
 from model.model import EAST
 from utils.util import seed_everything, setup_paths
 from utils.argparsers import Parser
@@ -26,6 +26,7 @@ from utils.plot import visualize_bbox
 txt_logger = None
 wb_logger = None
 device = None
+VAL_START_IDX = 30
 
 def validation(model: torch.nn.Module, val_loader: DataLoader) -> dict:
     with torch.no_grad():
@@ -46,7 +47,6 @@ def validation(model: torch.nn.Module, val_loader: DataLoader) -> dict:
             image_fnames.append(image_fname[0])
             pred_bboxes.append(pred_bbox[0])
             gt_bboxes.append(gt_bbox.cpu().numpy()[0])
-            break
             
         gt_bboxes = {image_fname : gt_bbox for image_fname, gt_bbox in zip(image_fnames, gt_bboxes)}
         pred_bboxes = {image_fname : pred_bbox for image_fname, pred_bbox in zip(image_fnames, pred_bboxes)}
@@ -76,13 +76,11 @@ def validation(model: torch.nn.Module, val_loader: DataLoader) -> dict:
 def train(args):
     seed_everything(args.seed)
     save_path, weight_path = setup_paths(args.save_dir, args.exp_name)
-    global txt_logger
-    global wb_logger
     
     use_cuda = torch.cuda.is_available()
     global device
     device = torch.device("cuda" if use_cuda else "cpu")
-    
+
     if args.with_pickle:
         dataset_module = getattr(import_module("data.dataset"), args.dataset + "WithPickle")
         train_set = EASTDataset(dataset_module(args.data_dir, args.pickle_path))
@@ -98,12 +96,16 @@ def train(args):
     model = EAST(pretrained=True)
     model.to(device)
     
-    optimizer = create_optimizer(args.optimizer, model.parameters(), float(args.lr), 5e-4)
+    #optimizer = create_optimizer(args.optimizer, model.parameters(), float(args.lr), 5e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3,)
     scheduler = create_scheduler(args.scheduler, optimizer, args.max_epochs)
     
     with open(osp.join(save_path, 'config.json'), 'w', encoding='utf-8') as f:
         json.dump(vars(args), f, ensure_ascii=False, indent=4)
-        
+    
+    global txt_logger
+    global wb_logger
+    
     txt_logger = Logger(save_path)
     wb_logger = WeightAndBiasLogger(args, save_path.split("/")[-1], args.project_name)
     txt_logger.update_string(str(args))
@@ -128,7 +130,7 @@ def train(args):
             optimizer.step()
             
             train_loss += loss_val
-            train_desc = train_desc_format.format(epoch, args.max_epoch, extra_info['cls_loss'],
+            train_desc = train_desc_format.format(epoch, args.max_epochs, extra_info['cls_loss'],
                                                   extra_info['angle_loss'], extra_info['iou_loss'])
             train_process_bar.set_description(train_desc)
             
@@ -140,25 +142,26 @@ def train(args):
         txt_logger.update_string(train_desc)
         train_process_bar.close()
         
-        metric, vis_img_name, pred_bboxes, gt_bboxes = validation(model, val_loader)
-        image_fpath = osp.join(osp.join(args.data_dir, "img", "train", vis_img_name))
+        if epoch >= VAL_START_IDX:
+            metric, vis_img_name, pred_bboxes, gt_bboxes = validation(model, val_loader)
+            image_fpath = osp.join(args.data_dir, "img", "train", vis_img_name)
         
-        img = cv2.imread(image_fpath)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        gt_img = visualize_bbox(img.copy(), gt_bboxes)
-        pred_img = visualize_bbox(img.copy(), pred_bboxes)
+            img = cv2.imread(image_fpath)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            gt_img = visualize_bbox(img.copy(), gt_bboxes)
+            pred_img = visualize_bbox(img.copy(), pred_bboxes)
+            
+            vis_img = np.hstack([pred_img, gt_img])
+            
+            metric["Image"] = vis_img
+            metric["Train Loss"] = train_loss / num_batches
+            wb_logger.log(metric)
+            
+            if metric["Val F1_Score"] > best_f1_score:
+                torch.save(model.state_dict(), os.path.join(weight_path, 'best.pt'))
+                best_f1_score = metric["Val F1_Score"]
         
-        vis_img = np.hstack([pred_img, gt_img])
-        
-        metric["Image"] = vis_img
-        metric["Train Loss"] = train_loss / num_batches
-        wb_logger.update(metric)
-        
-        if metric["Val F1_Score"] > best_f1_score:
-            torch.save(model.module.state_dict(), os.path.join(weight_path, 'best.pt'))
-            best_f1_score = metric["Val F1_Score"]
-        
-        torch.save(model.module.state_dict(), os.path.join(weight_path, 'last.pt'))
+        torch.save(model.state_dict(), os.path.join(weight_path, 'last.pt'))
     
     best_weight = torch.load(os.path.join(weight_path, 'best.pt'))
     
