@@ -63,7 +63,7 @@ def do_inference(model, ckpt_fpath, data_dir, input_size, batch_size, split='tes
 
 def main(args):
     model = EAST(pretrained=False).to(args.device)
-    ckpt_fpath = osp.join(args.model_dir, 'latest_42.pth')
+    ckpt_fpath = osp.join(args.model_dir, 'best.pt')
 
     if not osp.exists(args.output_dir):
         os.makedirs(args.output_dir)
