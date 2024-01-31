@@ -61,9 +61,9 @@ def make_pickle(root_dir, json_name, out_path,
 
         image, vertices = resize_img(image, vertices, image_size)
         image, vertices = adjust_height(image, vertices)
-        image, vertices = rotate_img(image, vertices)
         for idx in range(num_crop):
-            crop_image, crop_vertices = crop_img(image, vertices, labels, crop_size)
+            rotate_image, rotate_vertices = rotate_img(image, vertices)
+            crop_image, crop_vertices = crop_img(rotate_image, rotate_vertices, labels, crop_size)
             
             if crop_image.mode != 'RGB':
                 crop_image = crop_image.convert('RGB')
