@@ -26,7 +26,7 @@ from utils.plot import visualize_bbox
 txt_logger = None
 wb_logger = None
 device = None
-VAL_START_IDX = 30
+VAL_START_IDX = 50
 
 def validate(model: torch.nn.Module, val_loader: DataLoader) -> dict:
     with torch.no_grad():
@@ -35,7 +35,7 @@ def validate(model: torch.nn.Module, val_loader: DataLoader) -> dict:
         image_fnames = []
         gt_bboxes = []
         pred_bboxes = []
-                
+        pred_bbox = []
         print("Calculate validation set.....")
         
         for val_batch in val_loader:
@@ -48,10 +48,11 @@ def validate(model: torch.nn.Module, val_loader: DataLoader) -> dict:
             pred_bboxes.append(pred_bbox[0])
             gt_bboxes.append(gt_bbox.cpu().numpy()[0])
             
+        
         gt_bboxes = {image_fname : gt_bbox for image_fname, gt_bbox in zip(image_fnames, gt_bboxes)}
         pred_bboxes = {image_fname : pred_bbox for image_fname, pred_bbox in zip(image_fnames, pred_bboxes)}
             
-        result = calc_deteval_metrics(pred_bboxes, gt_bboxes, verbose=True)
+        result = calc_deteval_metrics(pred_bboxes, gt_bboxes, verbose=False)
         precision, recall, f1score = result['total']['precision'], result['total']['recall'], result['total']['hmean']
         #per_sample_log = result['per_sample']
          
@@ -71,7 +72,7 @@ def validate(model: torch.nn.Module, val_loader: DataLoader) -> dict:
                 "Val Recall": recall,
                 "Val Precision": precision,
                 "Val F1_Score": f1score,
-            }, image_fname, pred_bbox[0], gt_bbox[0]
+            }, image_fname[0], pred_bbox[0] if len(pred_bbox) else None, gt_bbox[0]
             
 def train(args):
     seed_everything(args.seed)
@@ -80,13 +81,12 @@ def train(args):
     use_cuda = torch.cuda.is_available()
     global device
     device = torch.device("cuda" if use_cuda else "cpu")
-
-    if args.with_pickle:
-        dataset_module = getattr(import_module("data.dataset"), args.dataset + "WithPickle")
-        train_set = EASTDataset(dataset_module(args.data_dir, args.pickle_path))
-    else:
-        dataset_module = getattr(import_module("data.dataset"), args.dataset)
-        train_set = EASTDataset(dataset_module(args.data_dir, args.json_path, args.image_size, args.input_size, args.ignore_tags))
+    
+    try:
+        dataset_module = getattr(import_module("data.east_dataset"), args.dataset + "WithPickle" if args.with_pickle else args.dataset)
+        train_set = dataset_module(args.data_dir, args.pickle_path)
+    except Exception as e:
+        raise Exception("Be sure to use the East dataset pickle dataset")
         
     val_set = TestDataset(args.data_dir, args.val_json_path, args.image_size, args.ignore_tags)
         
@@ -111,6 +111,8 @@ def train(args):
     
     best_f1_score = 0.
     num_batches = len(train_loader)
+    scaler = torch.cuda.amp.GradScaler()
+    
     for epoch in range(args.max_epochs):
         model.train()
         epoch_start = time.time()
@@ -122,12 +124,16 @@ def train(args):
             img, gt_score_map, gt_geo_map, roi_mask = train_batch
             optimizer.zero_grad()
             
-            loss, extra_info = model.train_step(img, gt_score_map, gt_geo_map, roi_mask)
+            with torch.cuda.amp.autocast():
+                    loss, extra_info = model.train_step(
+                        img, gt_score_map, gt_geo_map, roi_mask
+                    )
             
-            loss.backward()
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+            
             loss_val = loss.item()
-            optimizer.step()
-            
             train_loss += loss_val
             train_desc = train_desc_format.format(epoch, args.max_epochs, extra_info['cls_loss'],
                                                   extra_info['angle_loss'], extra_info['iou_loss'])
@@ -143,7 +149,7 @@ def train(args):
         
         if epoch >= VAL_START_IDX:
             metric, vis_img_name, pred_bboxes, gt_bboxes = validate(model, val_loader)
-            #image_fpath = osp.join(args.data_dir, "img", "train", vis_img_name)
+            image_fpath = osp.join(args.data_dir, "img", "train", vis_img_name)
         
             img = cv2.imread(image_fpath)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
