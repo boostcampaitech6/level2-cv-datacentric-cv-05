@@ -5,15 +5,19 @@ import pickle
 from PIL import Image
 
 import numpy as np
+import cv2
+import torch
 
 from data.dataset import filter_vertices, resize_img, adjust_height, rotate_img, crop_img
+from data.preprocess import generate_score_geo_maps, generate_roi_mask
 
-def make_pickle(root_dir, json_name, 
+def make_pickle(root_dir, json_name, out_path,
                 image_size=2048, 
                 crop_size=1024, 
                 ignore_tags=["masked", "excluded-region", "maintable", "stamp"], 
                 ignore_under_threshold=10, 
-                drop_under_threshold=1):
+                drop_under_threshold=1,
+                num_crop=1):
     
     if crop_size % 32 != 0:
         raise ValueError("`input_size` must be a multiple of 32")
@@ -25,7 +29,7 @@ def make_pickle(root_dir, json_name,
     image_fnames = sorted(anno["images"].keys())
     image_dir = osp.join(root_dir, "img", "train")
     
-    total = dict(images = [], vertices = [], labels = [])
+    total = dict(images=[], scores=[], geos=[], rois=[])
     for idx in tqdm(range(len(image_fnames))):
         image_fname = image_fnames[idx]
         image_fpath = osp.join(image_dir, image_fname)
@@ -58,25 +62,45 @@ def make_pickle(root_dir, json_name,
         image, vertices = resize_img(image, vertices, image_size)
         image, vertices = adjust_height(image, vertices)
         image, vertices = rotate_img(image, vertices)
-        image, vertices = crop_img(image, vertices, labels, crop_size)
-        
-        if image.mode != 'RGB':
-            image = image.convert('RGB')
+        for idx in range(num_crop):
+            crop_image, crop_vertices = crop_img(image, vertices, labels, crop_size)
             
-        total["images"].append(np.array(image))
-        total["vertices"].append(vertices)
-        total["labels"].append(labels)
+            if crop_image.mode != 'RGB':
+                crop_image = crop_image.convert('RGB')
+            
+            word_bboxes = np.reshape(crop_vertices, (-1, 4, 2))
+            crop_image = np.array(crop_image)
+            roi_mask = generate_roi_mask(crop_image, crop_vertices, labels)
+            
+            score_map, geo_map = generate_score_geo_maps(crop_image, word_bboxes, map_scale=0.5)
+            
+            mask_size = int(crop_image.shape[0] * 0.5), int(crop_image.shape[1] * 0.5)
+            roi_mask = cv2.resize(roi_mask, dsize=mask_size)
+            
+            if roi_mask.ndim == 2:
+                roi_mask = np.expand_dims(roi_mask, axis=2)
+            
+            score_map = torch.Tensor(score_map).permute(2, 0, 1)
+            geo_map = torch.Tensor(geo_map).permute(2, 0, 1)
+            roi_mask = torch.Tensor(roi_mask).permute(2, 0, 1)
+            
+            total["images"].append(np.array(crop_image))
+            total["scores"].append(score_map)
+            total["geos"].append(geo_map)
+            total["rois"].append(roi_mask)
     
-    with open(osp.splitext(json_dir)[0] + ".pkl", "wb") as fw:
+    with open(osp.join(root_dir, "ufo", out_path), "wb") as fw:
         pickle.dump(total, fw)
             
 if __name__ == '__main__':
     make_pickle(
         root_dir = '../data/medical',
         json_name= 'split/train_fold_0.json',
+        out_path="split/train_fold_0_c4.pkl",
         image_size=2048,
         crop_size=1024,
         ignore_tags=["masked", "excluded-region", "maintable", "stamp"],
         ignore_under_threshold=10,
         drop_under_threshold=1,
+        num_crop=4
     )
