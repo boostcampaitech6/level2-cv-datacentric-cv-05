@@ -217,7 +217,9 @@ class TrainTransform:
     def __init__(self):
         self.transform = A.Compose([A.ColorJitter(0.5, 0.5, 0.5, 0.25), 
                                     A.ToGray(),
-                                    A.Normalize()])
+                                    A.CLAHE(2, (8, 8)),
+                                    A.Normalize(),
+                                    ToTensorV2()])
     
     def __call__(self, image):
         return self.transform(image=image)
