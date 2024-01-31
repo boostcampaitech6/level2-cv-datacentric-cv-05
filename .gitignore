@@ -27,6 +27,7 @@ eda.py
 # exclude results
 results/
 output/
+visualization/
 .vscode/
 
 # exclude etc
