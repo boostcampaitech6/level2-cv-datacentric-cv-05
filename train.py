@@ -17,9 +17,10 @@ from model import EAST
 from detect import *
 from deteval import *
 from utils import *
-from plot import *
 import wandb
 import random
+from plot import draw_bboxes
+
 
 
 def seed_everything(seed: int = 1):
@@ -40,14 +41,14 @@ def parse_args():
     parser.add_argument(
         "--data_dir",
         type=str,
-        default="/data/ephemeral/home/level2-cv-datacentric-cv-05/data/medical",
+        default="/data/ephemeral/home/sumin/data/medical",
     )
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--fold", type=int, default=0)
     parser.add_argument(
         "--model_dir",
         type=str,
-        default="/data/ephemeral/home/level2-cv-datacentric-cv-05/code/pths",
+        default="/data/ephemeral/home/sumin/code/pths",
     )
     parser.add_argument("--device", default="cuda" if cuda.is_available() else "cpu")
     parser.add_argument("--num_workers", type=int, default=8)
@@ -193,17 +194,6 @@ def train(
                     model, data_dir, valid_images, input_size, batch_size, fold
                 )
 
-                gt_image = valid_images.copy()
-                pred_image = valid_images.copy()
-
-                draw_bboxes(gt_image, gt_bboxes_dict)
-                draw_bboxes(pred_image, pred_bboxes_dict)
-
-                ## wandb로 넣으실때 gt와 pred를 각각 넣으셔야 합니다.
-                ## 아래 코드를 참고해주세요. (이건 예시입니다. 아래가 동작하는 건 아닙니다!)
-                # wandb.log({"gt": gt_image}, step=epoch) -> title : gt_<image_name>
-                # wandb.log({"pred": pred_image}, step=epoch) -> pred_<image_name>
-
                 result = calc_deteval_metrics(pred_bboxes_dict, gt_bboxes_dict)
                 total_result = result["total"]
                 precision, recall, hmean = (
@@ -219,6 +209,23 @@ def train(
                 wandb.log({"valid_recall": recall}, step=epoch)
                 wandb.log({"valid_f1_score": f1_score}, step=epoch)
 
+                for image_id in valid_images:
+                    gt_bboxes = gt_bboxes_dict[image_id]
+                    pred_bboxes = pred_bboxes_dict[image_id]
+                    image_path = osp.join(data_dir, "img/train", image_id)
+                    image = cv2.imread(image_path)
+                    vis_image = image.copy()
+                    # 실제 박스 그리기 
+                    draw_bboxes(vis_image, gt_bboxes, color=(0, 0, 255), double_lined=False, thickness=2, thickness_sub=5)
+            
+                    # 예측 박스 그리기 red
+                    draw_bboxes(vis_image, pred_bboxes, color=(255, 0, 0), double_lined=True, thickness=2, thickness_sub=5)
+
+                    # WandB에 로그 기록
+                    wandb_image = wandb.Image(vis_image, caption=f"Pred BBoxes for Image {image_id}")
+                    wandb.log({f"Pred BBoxes Epoch {epoch+1}": wandb_image}, step=epoch)
+
+                
                 if best_f1_score < f1_score:
                     print(
                         f"New best model for f1 score : {f1_score}! saving the best model.."
