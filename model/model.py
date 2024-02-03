@@ -1,39 +1,18 @@
 import math
-
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from loss import EASTLoss
+from utils.loss import EASTLoss
 
-
-cfg = [
-    64,
-    64,
-    "M",
-    128,
-    128,
-    "M",
-    256,
-    256,
-    256,
-    "M",
-    512,
-    512,
-    512,
-    "M",
-    512,
-    512,
-    512,
-    "M",
-]
-
+cfg = [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M']
 
 def make_layers(cfg, batch_norm=False):
     layers = []
     in_channels = 3
     for v in cfg:
-        if v == "M":
+        if v == 'M':
             layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
         else:
             conv2d = nn.Conv2d(in_channels, v, kernel_size=3, padding=1)
@@ -62,7 +41,7 @@ class VGG(nn.Module):
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.BatchNorm2d):
@@ -85,11 +64,15 @@ class Extractor(nn.Module):
         super().__init__()
         vgg16_bn = VGG(make_layers(cfg, batch_norm=True))
         if pretrained:
-            vgg16_bn.load_state_dict(
-                torch.load(
-                    "/data/ephemeral/home/level2-cv-datacentric-cv-05/code/pths/vgg16_bn-6c64b313.pth"
-                )
-            )  # TODO: args.model_dir 받아와야함
+            try:
+                vgg16_bn.load_state_dict(torch.load('./pths/vgg16_bn-6c64b313.pth'))
+            except Exception as e:
+                import wget
+                if not os.path.exists("./pths"):
+                    os.mkdir("./pths")
+                wget.download('https://download.pytorch.org/models/vgg16_bn-6c64b313.pth', './pths/vgg16_bn-6c64b313.pth')
+                vgg16_bn.load_state_dict(torch.load('./pths/vgg16_bn-6c64b313.pth'))
+                
         self.features = vgg16_bn.features
 
     def forward(self, x):
@@ -104,32 +87,7 @@ class Extractor(nn.Module):
 class Merge(nn.Module):
     def __init__(self):
         super().__init__()
-
-        # self.conv1 = nn.Conv2d(1024, 128, 1)
-        # self.bn1 = nn.BatchNorm2d(128)
-        # self.relu1 = nn.ReLU()
-        # self.conv2 = nn.Conv2d(128, 128, 3, padding=1)
-        # self.bn2 = nn.BatchNorm2d(128)
-        # self.relu2 = nn.ReLU()
-
-        # self.conv3 = nn.Conv2d(384, 64, 1)
-        # self.bn3 = nn.BatchNorm2d(64)
-        # self.relu3 = nn.ReLU()
-        # self.conv4 = nn.Conv2d(64, 64, 3, padding=1)
-        # self.bn4 = nn.BatchNorm2d(64)
-        # self.relu4 = nn.ReLU()
-
-        # self.conv5 = nn.Conv2d(192, 32, 1)
-        # self.bn5 = nn.BatchNorm2d(32)
-        # self.relu5 = nn.ReLU()
-        # self.conv6 = nn.Conv2d(32, 32, 3, padding=1)
-        # self.bn6 = nn.BatchNorm2d(32)
-        # self.relu6 = nn.ReLU()
-
-        # self.conv7 = nn.Conv2d(32, 32, 3, padding=1)
-        # self.bn7 = nn.BatchNorm2d(32)
-        # self.relu7 = nn.ReLU()
-
+        
         self.conv1 = nn.Conv2d(1024, 128, 1)
         self.bn1 = nn.BatchNorm2d(128)
         self.relu1 = nn.ReLU()
@@ -162,9 +120,10 @@ class Merge(nn.Module):
         self.bn9 = nn.BatchNorm2d(32)
         self.relu9 = nn.ReLU()
 
+
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.BatchNorm2d):
@@ -189,22 +148,22 @@ class Merge(nn.Module):
 
         # y = self.relu7(self.bn7(self.conv7(y)))
 
-        y = F.interpolate(x[4], scale_factor=2, mode="bilinear", align_corners=True)
+        y = F.interpolate(x[4], scale_factor=2, mode='bilinear', align_corners=True)
         y = torch.cat((y, x[3]), 1)
         y = self.relu1(self.bn1(self.conv1(y)))
         y = self.relu2(self.bn2(self.conv2(y)))
 
-        y = F.interpolate(y, scale_factor=2, mode="bilinear", align_corners=True)
+        y = F.interpolate(y, scale_factor=2, mode='bilinear', align_corners=True)
         y = torch.cat((y, x[2]), 1)
         y = self.relu3(self.bn3(self.conv3(y)))
         y = self.relu4(self.bn4(self.conv4(y)))
 
-        y = F.interpolate(y, scale_factor=2, mode="bilinear", align_corners=True)
+        y = F.interpolate(y, scale_factor=2, mode='bilinear', align_corners=True)
         y = torch.cat((y, x[1]), 1)
         y = self.relu5(self.bn5(self.conv5(y)))
         y = self.relu6(self.bn6(self.conv6(y)))
 
-        y = F.interpolate(y, scale_factor=2, mode="bilinear", align_corners=True)
+        y = F.interpolate(y, scale_factor=2, mode='bilinear', align_corners=True)
         y = torch.cat((y, x[0]), 1)
         y = self.relu7(self.bn7(self.conv7(y)))
         y = self.relu8(self.bn8(self.conv8(y)))
@@ -226,15 +185,15 @@ class Output(nn.Module):
         self.scope = 512
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
         score = self.sigmoid1(self.conv1(x))
-        loc = self.sigmoid2(self.conv2(x)) * self.scope
+        loc   = self.sigmoid2(self.conv2(x)) * self.scope
         angle = (self.sigmoid3(self.conv3(x)) - 0.5) * math.pi
-        geo = torch.cat((loc, angle), 1)
+        geo   = torch.cat((loc, angle), 1)
         return score, geo
 
 
@@ -252,23 +211,18 @@ class EAST(nn.Module):
 
     def train_step(self, image, score_map, geo_map, roi_mask):
         device = list(self.parameters())[0].device
-        image, score_map, geo_map, roi_mask = (
-            image.to(device),
-            score_map.to(device),
-            geo_map.to(device),
-            roi_mask.to(device),
-        )
+        image, score_map, geo_map, roi_mask = (image.to(device), score_map.to(device),
+                                               geo_map.to(device), roi_mask.to(device))
         pred_score_map, pred_geo_map = self.forward(image)
 
-        loss, values_dict = self.criterion(
-            score_map, pred_score_map, geo_map, pred_geo_map, roi_mask
-        )
+        loss, values_dict = self.criterion(score_map, pred_score_map, geo_map, pred_geo_map,
+                                           roi_mask)
         extra_info = dict(**values_dict, score_map=pred_score_map, geo_map=pred_geo_map)
 
         return loss, extra_info
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     m = EAST()
     x = torch.randn(1, 3, 1024, 1024)
     score, geo = m(x)
