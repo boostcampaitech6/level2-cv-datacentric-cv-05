@@ -26,45 +26,14 @@
             <a href="https://github.com/ccsum19"><strong>조수민</strong></a>
             <br />
         </td>
-        <td align="center" width="150px">
-            <a href="https://github.com/hee000"><img height="120px" width="120px" src="https://github.com/boostcampaitech6/level2-objectdetection-cv-05/assets/78292486/cde48fcd-8099-472b-9877-b2644954ec68"/></a>
-            <br />
-            <a href="https://github.com/hee000"><strong>조창희</strong></a>
-            <br />
-        </td>
-        <td align="center" width="150px">
-              <a href="https://github.com/SangBeom-Hahn"><img height="120px" width="120px" src="https://github.com/boostcampaitech6/level2-objectdetection-cv-05/assets/78292486/1f7ed5a5-5e0f-46e4-85c6-31b9767dce41"/></a>
-              <br />
-              <a href="https://github.com/SangBeom-Hahn"><strong>한상범</strong></a>
-              <br />
-          </td>
-    </tr>
-</table>
+        <리|
+|이영진|데이터 증강 및 데이터 전처리, Ensemble|
+|조민지|데이터 전처리, Ensemble, 변경 가능한 하이퍼 파라미터 실험|
+|조수민|데이터 증강 및 Enseble, Logging 기능 구현|
+|조창희|외부 데이터 셋 수집 및 FP16 기능 구현|
+|한상범|GitHub 전략 셋팅, 모델 실험 프로세스 개선선|
 <br/>
 
-## 재활용 쓰레기 검출 대회
-> ### 대회 개요
-- 본 프로젝트는 분리수거를 돕기 위한 모델을 제작하는 것이다.
-- 주어진 사진에서 쓰레기를 Detection하여 환경 문제를 돕는다.
-- 일반 쓰레기, 플라스틱, 종이, 유리 등 10 종류의 쓰레기를 감지할 수 있도록 한다.
-<br/>
-
-> ### 팀 역할
-|이름|역할|
-|------|---|
-|전체|EDA, 데이터 클렌징, 팀 분배 및 Wrap up report 작성, 데이터 증강 및 모델 성능 향상을 위한 각종 실험|
-|양우희|하이퍼 파라미터 성능 실험|
-|이영진|TTA 실험, Ensemble|
-|조민지|Mosaic aug, CV (stratified group, multilabel stratified), Ensemble, CAM visualize|
-|조수민|Detectron2를 이용한 모델 실험, 하이퍼 파라미터 성능 실험, Ensemble|
-|조창희|Stage1 모델 실험, Ensemble|
-|한상범|GitHub 전략 셋팅, 모델 실험 프로세스 개선, 모델 클래스별 튜닝|
-<br/>
-
-> ### WBS
-<img width="1000" alt="image" src="https://github.com/boostcampaitech6/level2-objectdetection-cv-05/assets/78292486/d0acdc43-60c0-4992-90b4-6b3dcdc01447">
-<br/>
-<br/>
 
 > ### 개발환경
 ```bash
@@ -84,11 +53,10 @@ pip install -r requirements.txt
 <br/>
 
 > ### Dataset
-- 전체 이미지 개수 : 9754장 (train 4883장, test 4871장)
-- 10 class : General trash, Paper, Paper pack, Metal, Glass, Plastic, Styrofoam, Plastic bag, Battery, Clothing
-- 이미지 크기 : (1024, 1024)
-- Input : 쓰레기 객체가 담긴 이미지와 bbox 정보(좌표, 카테고리)가 모델의 인풋으로 사용. bbox annotation은 COCO format으로 제공
-- Output : 모델은 bbox 좌표, 카테고리, score 값을 리턴
+- 전체 이미지 개수 : 200장 (train 100장, test 100장)
+- 이미지 크기 : 최대 가로크기 4032, 세로크기 4160, 최소 가로크기 645, 세로크기 803
+- Input : 박스 좌표 및 angle, 글자가 포함된 이미지
+- Output : 모델은 bbox 좌표, angle, score 값을 리턴
 <br/>
 
 > ### EDA
@@ -109,24 +77,22 @@ pip install -r requirements.txt
 <br/>
 <br/>
 
-- 가려짐이 심한 object에도 일일이 bounding box가 그려진 경우, 다른 물체에 부착된 스티커 등이 별개의 객체로 분류된 경우, 겹쳐진 모든 객체를 각각으로 판단하는 경우 등 범위의 일관성 논의가 필요했다.
-- 또한, Class 표기가 이미지마다 다르게 적용된 것이 있었고, class의 정체를 파악하기 어려운 object가 있었다.
-- 관찰 기록을 토대로 데이터의 일관성에서 어긋나는 데이터는 삭제할 수 있는 규칙을 정했다. 개인이 애매하다고 판단하는 데이터의 경우에는 우선 기록을 하고 추후 처리 방식을 의논하였다.
+- 해당 데이터 셋을 리뷰한 뒤 클렌징 기법에 대한 논의를 진행하였다.
+- 논의의 진행 결과로서 일관적인 레이블링이 필요할 것으로 판단되어 각 객체에 대해 약 20px이상 띄워져 있는 경우 다른 객체라 판단하였다.
+- 뿐만 아니라 일정 크기 이하를 가지는 예를들어 쉼표와 마침표의 경우 학습에 어려움이 있을 것으로 판단되고 평가 진행시에도 큰 점수를 가져가지 않으므로 레이블링에서 제외하였다.
+- 잘못 레이블링 된 경우(배경 레이블링, 박스의 크기를 작게 설정함)도 클렌징 대상에 포함하였다.
 <br/>
 
-> ### Model
-추후에
-<br/>
 
 > ### Training
 ```bash
-python train.py -c config.json
+python train.py --config "config path"
 ```
 <br/>
 
 > ### Inference
 ```bash
-python live/inference.py -c <setting> -r <ckpt_dir> -d 0
+python inference.py --model-dir "model path"
 ```
 <br/>
 
@@ -134,22 +100,29 @@ python live/inference.py -c <setting> -r <ckpt_dir> -d 0
 ```
 📦 level2-objectdetection-cv-05
 ├─ 📂EDA
-│  └─ eda.ipynb
-└─ 📂live
-   ├─ 📂data_loader
-   │  ├─ custom_data_loader.py
-   │  └─ custom_test_data_loader.py
-   ├─ 📂dataset
-   │  └─ custom_dataset.py
-   ├─ 📂model
-   │  └─ custom_model.py
-   ├─ 📂trainer
-   │  └─ trainer.py
-   ├─ 📂utils
-   │  └─ util.py
-   ├─ config.json
-   ├─ inference.py
-   ├─ parse_config.py
-   ├─ test_config.py
-   └─ train.py
+│  └─ eda.ipynb
+├─ 📂config
+│  └─ base.yaml
+├─ 📂data
+│  ├─ dataset.py
+│  ├─ east_dataset.py
+│  ├─ preprocess.py
+│  └─ augmentation.py
+├─ 📂model
+│  └─ model.py
+├─ 📂utils
+│  ├─ argparsers.py
+│  ├─ create.py
+│  ├─ detect.py
+│  ├─ deteval.py
+│  ├─ logger.py
+│  ├─ loss.py
+│  ├─ lr_scheduler.py
+│  ├─ plot.py
+│  └─ util.py
+├─ train.py
+├─ inference.py
+├─ make_train.py
+└─ visualize.py
+
 ```
