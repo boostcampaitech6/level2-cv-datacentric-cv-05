@@ -8,6 +8,8 @@ config/*
 !config/final.yml
 
 # exclude custom dataset files (only include dataset.py)
+code/
+data/
 # !data/
 # data/*
 # !data/datasets.py
@@ -324,6 +326,9 @@ ehthumbs_vista.db
 
 # Dump file
 *.stackdump
+
+# aistage key file
+aistages.pem
 
 # Folder config file
 [Dd]esktop.ini
